@@ -6,6 +6,7 @@ from spacy.tokens import Token, Doc, Span, DocBin
 from spacy.lexeme import Lexeme
 from spacy.vocab import Vocab
 import random
+import json
 from spacy.util import minibatch, compounding 
 from sklearn.model_selection import train_test_split
 
@@ -226,6 +227,14 @@ class BERTClassifier(TextClassifier):
     #     self.meta = self.processor.get_pipe('trf_textcat').cfg
     #     self.labels = set(self.meta['labels'])
     #     self.best_params = None
+    @classmethod
+    def from_disk(cls, path):
+        processor = spacy.load(path)
+        meta = processor.get_pipe('trf_textcat').cfg
+        labels = set(meta['labels'])
+        clf = cls(labels=labels, processor=processor)
+        clf.meta = meta
+        return clf
     
 def cyclic_triangular_rate(min_lr, max_lr, period):
     it = 1
