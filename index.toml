@@ -1,0 +1,11 @@
+[models.glove]
+filename = "en_core_web_sm-2.2.5.zip"
+type = "base"
+url = "http://github.com"
+resource_url = "https://github.com/marc-chan/textcat_trainer/raw/master/en_core_web_sm-2.2.5.zip"
+[models.ner_cnn]
+filename = "ner_cnn.zip"
+type = "ner"
+url = "http://"
+resource_url = "http://"
+requires_base = true
