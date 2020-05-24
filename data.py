@@ -13,71 +13,36 @@ from urllib3.exceptions import InsecureRequestWarning
 # Suppress only the single warning from urllib3 needed.
 requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
 
+DEFAULT_INDEX_URL = "https://raw.githubusercontent.com/marc-chan/textcat_trainer/master/index.toml"
 BASE_MODELS = ['glove', 'word2vec', 'distilbert']
 
-MODELS = {
-    'glove': 'en_core_web_lg-2.2.5',
+MODEL_ALIASES = {
+    'glove': 'en_core_web_sm-2.2.5',
     'word2vec': 'word2vec',
     'distilbert': 'en_trf_distilbertbaseuncased_lg-2.2.0',
 }
 
-datapaths = []
-"""A list of directories where the tetris data packages might reside.
-   These directories will be checked in order when looking for a
-   resource in the data package.  Note that this allows users to
-   substitute in their own versions of resources, if they have them
-   (e.g., in their home directory under ~/tetris_data)."""
-
-# # User-specified locations:
-# _paths_from_env = os.environ.get("TETRIS_DATA", str("")).split(os.pathsep)
-# datapaths += [d for d in _paths_from_env if d]
-# if "APPENGINE_RUNTIME" not in os.environ and os.path.expanduser("~/") != "~/":
-#     datapaths.append(os.path.expanduser(str("~/tetris_data")))
-
-# if sys.platform.startswith("win"):
-#     # Common locations on Windows:
-#     datapaths += [
-#         os.path.join(sys.prefix, str("tetris_data")),
-#         os.path.join(sys.prefix, str("share"), str("tetris_data")),
-#         os.path.join(sys.prefix, str("lib"), str("tetris_data")),
-#         os.path.join(os.environ.get(str("APPDATA"), str("C:\\")), str("tetris_data")),
-#         str(r"C:\tetris_data"),
-#         str(r"D:\tetris_data"),
-#         str(r"E:\tetris_data"),
-#     ]
-# else:
-#     # Common locations on UNIX & OS X:
-#     datapaths += [
-#         os.path.join(sys.prefix, str("tetris_data")),
-#         os.path.join(sys.prefix, str("share"), str("tetris_data")),
-#         os.path.join(sys.prefix, str("lib"), str("tetris_data")),
-#         str("/usr/share/tetris_data"),
-#         str("/usr/local/share/tetris_data"),
-#         str("/usr/lib/tetris_data"),
-#         str("/usr/local/lib/tetris_data"),
-#     ]
-
-# Default locations:
+PATHS = []
 homedir = Path.home()
 basedir = Path(sys.prefix)
 
 if "APPENGINE_RUNTIME" not in os.environ:
-    datapaths.append(homedir / str("tetris_data"))
+    PATHS.append(homedir / str("tetris_data"))
 
 if sys.platform.startswith("win"):
     # Common locations on Windows:
-    datapaths += [
+    PATHS += [
         basedir / str("tetris_data"),
         basedir / str("share") / str("tetris_data"),
         basedir / str("lib") / str("tetris_data"),
         Path(os.environ.get(str("APPDATA"), str("C:\\"))) / str("tetris_data"),
-        Path(str("C:\tetris_data")),
-        Path(str("D:\tetris_data")),
-        Path(str("E:\tetris_data")),
+        Path(str("C:/tetris_data")),
+        Path(str("D:/tetris_data")),
+        Path(str("E:/tetris_data")),
     ]
 else:
     # Common locations on UNIX & OS X:
-    datapaths += [
+    PATHS += [
         basedir / str("tetris_data"),
         basedir / str("share") / str("tetris_data"),
         basedir / str("lib") / str("tetris_data"),
@@ -88,14 +53,14 @@ else:
     ]
 
 def find(path_or_name):
-    #Check against base models first
-    is_included = path_or_name in MODELS
-    new_path_or_name = MODELS.get(path_or_name, path_or_name)
+    #First check against MODEL_ALIASES
+    is_included = path_or_name in MODEL_ALIASES
+    new_path_or_name = MODEL_ALIASES.get(path_or_name, path_or_name)
     path = Path(new_path_or_name)
     if path.exists():
         return path
     else:
-        for dir_ in datapaths:
+        for dir_ in PATHS:
             dirpath = Path(dir_) / new_path_or_name
             if dirpath.exists():
                 return dirpath
@@ -111,8 +76,8 @@ def load(path_or_name, typ=None):
         if typ and typ != mtype:
             raise ValueError("No model found.")
         if mtype:
-            cls = factories.get(mtype)
-            return cls(path)
+            loader = factories.get(mtype)
+            return loader(path)
         return spacy.load(path)
     else:
         raise ValueError("No model found.")
@@ -129,13 +94,13 @@ def default_download_dir():
 
     # Check if we have sufficient permissions to install in a
     # variety of system-wide locations.
-    for dir_ in datapaths:
+    for dir_ in PATHS:
         if dir_.exists() and is_dir_writable(dir_):
             return dir_
 
     # On Windows, use %APPDATA%
     if sys.platform == "win32" and "APPDATA" in os.environ:
-        homedir = os.environ["APPDATA"]
+        homedir = Path(os.environ["APPDATA"])
 
     # Otherwise, install in the user's home directory.
     else:
@@ -144,7 +109,7 @@ def default_download_dir():
             raise ValueError("Could not find a default download directory")
 
     # append "tetris_data" to the home directory
-    return os.path.join(homedir, "tetris_data")
+    return homedir / "tetris_data"
 
 def get_resource_info(resource_name, index=None, index_url=None):
     if index:
@@ -157,11 +122,10 @@ def get_resource_info(resource_name, index=None, index_url=None):
         index = toml.loads(requests.get(index_url, verify=False).text)
         return get_resource_info(resource_name, index=index)
     else:
-        index = toml.load(open('./index.toml','r'))
-        return get_resource_info(resource_name, index=index)
+        raise ValueError("Either `index` or `index_url` must be provided")
 
 
-def download(resource_name, path=None):
+def download(resource_name, path=None, index=None, index_url=None):
     if path:
         path = Path(path)
     else:
@@ -170,7 +134,9 @@ def download(resource_name, path=None):
     if not path.exists():
         path.mkdir()
 
-    resource_filename, resource_url = get_resource_info(resource_name)
+    if not index and not index_url:
+        index_url = DEFAULT_INDEX_URL
+    resource_filename, resource_url = get_resource_info(resource_name, index=index, index_url=index_url)
     resource_filepath = path / resource_filename
     print(f"Downloading {resource_filename} to {resource_filepath}")
     with requests.get(resource_url, stream=True, verify=False) as r:
