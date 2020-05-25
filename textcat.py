@@ -1,16 +1,18 @@
-import os
-import json
-import spacy
-import numpy as np
-from spacy.tokens import Token, Doc, Span, DocBin
-from spacy.lexeme import Lexeme
-from spacy.vocab import Vocab
 import random
-import json
+import numpy as np
+from pathlib import Path
+import spacy
+from spacy.tokens import Doc, Span
 from spacy.util import minibatch, compounding 
 from sklearn.model_selection import train_test_split
+from srsly import read_json, write_json
 from data import BASE_MODELS, find, load
 
+is_using_gpu = spacy.prefer_gpu()
+if is_using_gpu:
+    import torch
+    torch.set_default_tensor_type("torch.cuda.FloatTensor")
+    spacy.util.use_gpu(0)
 
 class TextClassifier:
     pipe_name = 'textcat'
@@ -20,7 +22,7 @@ class TextClassifier:
         if not processor:
             if base:
                 try:
-                    processor = load(base, typ='base')
+                    processor = load(base)
                 except ValueError:
                     processor = None
             if not processor:
@@ -139,12 +141,13 @@ class TextClassifier:
         return data
 
     def _fix_meta(self, path):
-        meta_fp = os.path.join(path,'meta.json')
-        meta_json = json.load(open(meta_fp,'r'))
+        path = Path(path)
+        meta_fp = path /'meta.json'
+        meta_json = read_json(meta_fp)
         if 'trf_textcat' in meta_json['factories']:
             meta_json['factories']['trf_textcat'] = 'trf_textcat'
         meta_json['type'] = 'classifier'
-        json.dump(meta_json, open(meta_fp,'w'))
+        write_json(meta_fp, meta_json)
 
     def to_disk(self, path):
         if self.best_params:

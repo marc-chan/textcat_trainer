@@ -17,7 +17,8 @@ DEFAULT_INDEX_URL = "https://raw.githubusercontent.com/marc-chan/textcat_trainer
 BASE_MODELS = ['glove', 'word2vec', 'distilbert']
 
 MODEL_ALIASES = {
-    'glove': 'en_core_web_sm-2.2.5',
+    'basic': 'en_core_web_sm-2.2.5',
+    'glove': 'en_core_web_lg-2.2.5',
     'word2vec': 'word2vec',
     'distilbert': 'en_trf_distilbertbaseuncased_lg-2.2.0',
 }
